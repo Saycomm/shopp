@@ -1,0 +1,79 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+  <meta charset="UTF-8">
+  <title>Product Details</title>
+  <style>
+    body { font-family: sans-serif; max-width: 900px; margin: 20px auto; }
+    .product-container { display: flex; gap: 20px; }
+    .product-image { width: 300px; height: 300px; object-fit: cover; border: 1px solid #ccc; }
+    .product-info { flex: 1; }
+    .product-info h1 { margin-top: 0; }
+    .product-description { margin-top: 20px; }
+    .back-link { margin-bottom: 20px; display: inline-block; }
+  </style>
+</head>
+<body>
+  <div id="app">
+    <a href="/index.html" class="back-link">⬅ Orqaga</a>
+
+    <div v-if="product" class="product-container">
+      <img :src="product.imageData" alt="Tovar rasmi" class="product-image">
+      <div class="product-info">
+        <h1>{{ product.name }}</h1>
+        <p><strong>Kategoriya:</strong> {{ product.category }}</p>
+        <p><strong>Barcode:</strong> {{ product.barcode }}</p>
+        <p><strong>Narx:</strong> {{ product.price }} so‘m</p>
+        <button @click="addToCart">Tovarni qo‘shish</button>
+      </div>
+    </div>
+
+    <div v-if="!product">
+      Mahsulot topilmadi 😢
+    </div>
+
+    <div class="product-description" v-if="product">
+      <h2>Mahsulot harakteristikasi</h2>
+      <p>{{ product.description || 'Harakteristika yo‘q' }}</p>
+    </div>
+  </div>
+
+  <script src="https://unpkg.com/vue@3/dist/vue.global.js"></script>
+  <script>
+    const { createApp } = Vue
+
+    createApp({
+      data() {
+        return {
+          product: null,
+          products: []
+        }
+      },
+      methods: {
+        async loadProducts() {
+          try {
+            const res = await fetch('/api/products')
+            this.products = await res.json()
+
+            // URL dan id olish
+            const urlParams = new URLSearchParams(window.location.search)
+            const id = Number(urlParams.get('id'))
+
+            // Shu id li mahsulotni topish
+            this.product = this.products.find(p => p.id === id)
+          } catch(err) {
+            console.error(err)
+            alert('Mahsulotni yuklashda xatolik!')
+          }
+        },
+        addToCart() {
+          alert('Tovar kelajakda savatga qo‘shiladi!')
+        }
+      },
+      mounted() {
+        this.loadProducts()
+      }
+    }).mount('#app')
+  </script>
+</body>
+</html>
