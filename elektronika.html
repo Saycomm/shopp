@@ -1,0 +1,65 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+  <meta charset="UTF-8">
+  <title>Kiyim mahsulotlari</title>
+  <style>
+    body { font-family: sans-serif; max-width: 1000px; margin: 20px auto; }
+    .product-card { border: 1px solid #ccc; padding: 10px; margin-bottom: 10px; display:flex; gap:10px; align-items:center; }
+    .product-img { width: 80px; height: 80px; object-fit:cover; border:1px solid #ddd; }
+    .product-img-empty { width:80px; height:80px; background:#eee; display:flex; align-items:center; justify-content:center; font-size:12px; color:#555; border:1px solid #ddd; }
+  </style>
+</head>
+<body>
+  <a href="/index.html" class="back-link">⬅ Orqaga</a>
+  <h1>Kiyim mahsulotlari</h1\>
+  <div id="app">
+    <div v-for="product in filteredProducts" :key="product.id" class="product-card">
+      <div>
+        <a :href="`about-product.html?id=${product.id}`">
+          <img v-if="product.imageData" :src="product.imageData" class="product-img">
+          <div v-else class="product-img-empty">Rasm yo'q</div>
+        </a>
+      </div>
+      <div>
+        <strong>{{ product.name }}</strong><br>
+        Narx: {{ product.price }} so'm
+      </div>
+    </div>
+
+    <p v-if="filteredProducts.length===0">Hech narsa topilmadi 😢</p>
+  </div>
+
+  <script src="https://unpkg.com/vue@3/dist/vue.global.js"></script>
+  <script>
+    const { createApp } = Vue
+
+    createApp({
+      data() {
+        return {
+          products: [],
+          category: 'elektronika' // bu fayl uchun kategoriyani qo'yamiz
+        }
+      },
+      computed: {
+        filteredProducts() {
+          return this.products.filter(p => p.category === this.category)
+        }
+      },
+      methods: {
+        async loadProducts() {
+          try {
+            const res = await fetch('/api/products')
+            this.products = await res.json()
+          } catch(err) {
+            console.error(err)
+          }
+        }
+      },
+      mounted() {
+        this.loadProducts()
+      }
+    }).mount('#app')
+  </script>
+</body>
+</html>

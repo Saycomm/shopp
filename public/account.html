@@ -1,0 +1,227 @@
+<!DOCTYPE html>
+<html lang="uz">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Admin – Tovar boshqaruv</title>
+  <style>
+    body { font-family: Arial, sans-serif; max-width: 1100px; margin: 20px auto; padding: 0 15px; }
+    input, select, button { padding: 8px; margin: 4px 0; font-size: 16px; }
+    form > div { margin-bottom: 15px; }
+    table { width: 100%; border-collapse: collapse; margin-top: 20px; }
+    th, td { border: 1px solid #ccc; padding: 10px; text-align: left; }
+    th { background: #f0f8ff; }
+    .btn { padding: 8px 16px; border: none; border-radius: 4px; cursor: pointer; margin-right: 8px; }
+    .btn-primary { background: #007bff; color: white; }
+    .btn-secondary { background: #6c757d; color: white; }
+    .icon { cursor: pointer; margin: 0 8px; font-size: 20px; }
+  </style>
+</head>
+<body>
+
+<div id="app">
+  <h1>Admin panel – Tovar qo‘shish / tahrirlash</h1>
+
+  <form @submit.prevent="onSubmit">
+    <div>
+      <label>Tovar nomi:</label><br>
+      <input v-model="form.name" required style="width:400px;">
+    </div>
+
+    <div>
+      <label>Kategoriya:</label><br>
+      <select v-model="form.category" required>
+        <option value="">– Tanlang –</option>
+        <option v-for="c in categories" :key="c" :value="c">{{ c }}</option>
+      </select>
+    </div>
+
+    <div>
+      <label>Barcode (shtrix-kod):</label><br>
+      <input v-model="form.barcode" required>
+    </div>
+
+    <div>
+      <label>Narx (so‘m):</label><br>
+      <input type="number" v-model.number="form.price" required>
+    </div>
+
+    <div>
+      <label>Rasm (ixtiyoriy):</label><br>
+      <input type="file" accept="image/*" @change="onFileChange">
+    </div>
+
+    <div v-if="form.imageData">
+      <img :src="form.imageData" style="width:120px;height:120px;object-fit:cover;border-radius:8px;margin-top:8px;">
+    </div>
+
+    <div>
+      <button type="submit" class="btn btn-primary">
+        {{ isEditing ? 'Saqlash' : 'Qo‘shish' }}
+      </button>
+      <button v-if="isEditing" type="button" @click="cancelEdit" class="btn btn-secondary">
+        Bekor qilish
+      </button>
+    </div>
+  </form>
+
+  <hr>
+
+  <h2>Mavjud tovarlar ({{ products.length }} ta)</h2>
+  <input v-model="search" placeholder="Qidiruv (nomi yoki barcode)" style="width:350px;padding:8px;">
+
+  <table>
+    <thead>
+      <tr>
+        <th>#</th>
+        <th>Rasm</th>
+        <th>Nomi</th>
+        <th>Kategoriya</th>
+        <th>Barcode</th>
+        <th>Narx</th>
+        <th>Amallar</th>
+      </tr>
+    </thead>
+    <tbody>
+      <tr v-for="(p, i) in filtered" :key="p.id">
+        <td>{{ i + 1 }}</td>
+        <td>
+          <img v-if="p.imageData" :src="p.imageData" style="width:60px;height:60px;object-fit:cover;border-radius:4px;">
+          <div v-else style="width:60px;height:60px;background:#eee;display:flex;align-items:center;justify-content:center;font-size:11px;color:#777;">
+            Yo‘q
+          </div>
+        </td>
+        <td>{{ p.name }}</td>
+        <td>{{ p.category }}</td>
+        <td>{{ p.barcode }}</td>
+        <td>{{ p.price.toLocaleString() }} so‘m</td>
+        <td>
+          <span class="icon" @click="edit(p)" title="Tahrirlash">Edit</span>
+          <span class="icon" @click="remove(p.id)" title="O‘chirish">Delete</span>
+        </td>
+      </tr>
+    </tbody>
+  </table>
+</div>
+
+<script src="https://unpkg.com/vue@3/dist/vue.global.js"></script>
+<script>
+const { createApp } = Vue
+
+createApp({
+  data() {
+    return {
+      products: [],
+      search: '',
+      categories: ['kiyim', 'elektronika', 'mebel', 'oyoq kiyim', 'aksessuarlar'],
+      isEditing: false,
+      editId: null,
+      form: {
+        name: '',
+        category: '',
+        barcode: '',
+        price: null,
+        imageData: ''
+      }
+    }
+  },
+
+  computed: {
+    filtered() {
+      if (!this.search.trim()) return this.products
+      const term = this.search.toLowerCase()
+      return this.products.filter(p =>
+        p.name.toLowerCase().includes(term) ||
+        String(p.barcode).includes(term)
+      )
+    }
+  },
+
+  methods: {
+    async load() {
+      const res = await fetch('/api/products')
+      this.products = await res.json()
+    },
+
+    onFileChange(e) {
+      const file = e.target.files[0]
+      if (!file) return
+      const reader = new FileReader()
+      reader.onload = ev => this.form.imageData = ev.target.result
+      reader.readAsDataURL(file)
+    },
+
+    async onSubmit() {
+      if (this.isEditing) {
+        await this.update()
+      } else {
+        await this.add()
+      }
+    },
+
+    async add() {
+      const res = await fetch('/api/products', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(this.form)
+      })
+      const created = await res.json()
+      this.products.push(created)
+      this.resetForm()
+      alert('Tovar muvaffaqiyatli qo‘shildi!')
+    },
+
+    edit(p) {
+      this.isEditing = true
+      this.editId = p.id
+      this.form = { ...p } // barcha maydonlarni ko‘chiradi
+      // file inputni tozalash
+      const input = document.querySelector('input[type="file"]')
+      if (input) input.value = ''
+    },
+
+    async update() {
+      const res = await fetch(`/api/products/${this.editId}`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(this.form)
+      })
+      const updated = await res.json()
+      const idx = this.products.findIndex(x => x.id === this.editId)
+      if (idx > -1) this.products[idx] = updated
+      this.resetForm()
+      this.isEditing = false
+      alert('O‘zgarishlar saqlandi!')
+    },
+
+    async remove(id) {
+      if (!confirm('Bu tovarni o‘chirishga ishonchingiz komilmi?')) return
+      await fetch(`/api/products/${id}`, { method: 'DELETE' })
+      this.products = this.products.filter(p => p.id !== id)
+      if (this.isEditing && this.editId === id) {
+        this.resetForm()
+        this.isEditing = false
+      }
+    },
+
+    cancelEdit() {
+      this.resetForm()
+      this.isEditing = false
+    },
+
+    resetForm() {
+      this.form = { name: '', category: '', barcode: '', price: null, imageData: '' }
+      this.editId = null
+      const input = document.querySelector('input[type="file"]')
+      if (input) input.value = ''
+    }
+  },
+
+  mounted() {
+    this.load()
+  }
+}).mount('#app')
+</script>
+
+</body>
+</html>
